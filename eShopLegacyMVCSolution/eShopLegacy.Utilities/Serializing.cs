@@ -1,24 +1,36 @@
 ﻿using System.IO;
-using System.Runtime.Serialization.Formatters.Binary;
+using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace eShopLegacy.Utilities
 {
     public class Serializing
     {
-        public Stream SerializeBinary(object input)
+        private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
+
+        public Stream SerializeJson<T>(T input)
+        {
+            var bytes = JsonSerializer.SerializeToUtf8Bytes(input, SerializerOptions);
+            return new MemoryStream(bytes, writable: false);
+        }
+
+        public async Task<MemoryStream> SerializeJsonAsync<T>(T input, CancellationToken cancellationToken = default)
         {
             var stream = new MemoryStream();
-            var binaryFormatter = new BinaryFormatter();
-            binaryFormatter.Serialize(stream, input);
-            stream.Seek(0, SeekOrigin.Begin);
+            await JsonSerializer.SerializeAsync(stream, input, SerializerOptions, cancellationToken);
+            stream.Position = 0;
             return stream;
         }
 
-        public object DeserializeBinary(Stream stream)
+        public ValueTask<T?> DeserializeJsonAsync<T>(Stream stream, CancellationToken cancellationToken = default)
         {
-            var binaryFormatter = new BinaryFormatter();
-            stream.Seek(0, SeekOrigin.Begin);
-            return binaryFormatter.Deserialize(stream);
+            if (stream.CanSeek)
+            {
+                stream.Position = 0;
+            }
+
+            return JsonSerializer.DeserializeAsync<T>(stream, SerializerOptions, cancellationToken);
         }
     }
 }
