@@ -136,8 +136,17 @@ public ActionResult Create([Bind("Id,Name,Description,Price,PictureFileName,Cata
         {
             _log.Info($"Now processing... /Catalog/DeleteConfirmed?id={id}");
             CatalogItem catalogItem = service.FindCatalogItem(id);
-            service.RemoveCatalogItem(catalogItem);
+            if (catalogItem != null)
+            {
+                service.RemoveCatalogItem(catalogItem);
+            }
             return RedirectToAction("Index");
+        }
+
+        [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
+        public IActionResult Error()
+        {
+            return View();
         }
 
         protected override void Dispose(bool disposing)
@@ -160,7 +169,8 @@ public ActionResult Create([Bind("Id,Name,Description,Price,PictureFileName,Cata
 
         private void AddUriPlaceHolder(CatalogItem item)
         {
-            item.PictureUri = $"/Pics/{item.Id}.png";
+            item.PictureUri = Url.RouteUrl(PicController.GetPicRouteName, new { catalogItemId = item.Id })
+                ?? $"/items/{item.Id}/pic";
         }
     }
 }

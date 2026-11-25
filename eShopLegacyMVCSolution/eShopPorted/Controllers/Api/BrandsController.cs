@@ -6,7 +6,7 @@ namespace eShopPorted.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class BrandsController : Controller
+    public class BrandsController : ControllerBase
     {
         private readonly ICatalogService _service;
 
@@ -15,13 +15,26 @@ namespace eShopPorted.Controllers
             _service = service;
         }
 
+        [HttpGet]
         public IActionResult Index()
         {
             var brands = _service.GetCatalogBrands();
             return Ok(brands);
         }
 
-        [HttpDelete("{id}")]
+        [HttpGet("{id:int}")]
+        public IActionResult Get(int id)
+        {
+            var brand = _service.GetCatalogBrands().FirstOrDefault(x => x.Id == id);
+            if (brand == null)
+            {
+                return NotFound();
+            }
+
+            return Ok(brand);
+        }
+
+        [HttpDelete("{id:int}")]
         public IActionResult Delete(int id)
         {
             var brandToDelete = _service.GetCatalogBrands().FirstOrDefault(x => x.Id == id);
