@@ -2,12 +2,13 @@
 using System.Threading.Tasks;
 using eShopPorted.Models;
 using eShopPorted.Services;
+using Google.Cloud.AspNetCore.DataProtection.Storage;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.HttpOverrides;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -46,6 +47,21 @@ namespace eShopPorted
                     options.TimestampFormat = "yyyy-MM-ddTHH:mm:ss.fffZ";
                     options.UseUtcTimestamp = true;
                 });
+            }
+
+            string dataProtectionBucket = builder.Configuration["DataProtection:BucketName"];
+            if (!string.IsNullOrWhiteSpace(dataProtectionBucket))
+            {
+                string dataProtectionObject = builder.Configuration["DataProtection:ObjectName"];
+                if (string.IsNullOrWhiteSpace(dataProtectionObject))
+                {
+                    dataProtectionObject = "dataprotection/keys.xml";
+                }
+
+                builder.Services
+                    .AddDataProtection()
+                    .SetApplicationName("eShopCatalog")
+                    .PersistKeysToGoogleCloudStorage(dataProtectionBucket, dataProtectionObject);
             }
 
             builder.Services.AddControllersWithViews();
