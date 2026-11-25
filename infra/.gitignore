@@ -1,0 +1,12 @@
+# Local Terraform directories and state (note: .terraform.lock.hcl is tracked)
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
