@@ -1,8 +1,8 @@
-﻿using eShopPorted.Services;
+﻿using System.Threading;
+using System.Threading.Tasks;
+using eShopPorted.Services;
 using log4net;
 using Microsoft.AspNetCore.Mvc;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace eShopPorted.Controllers
 {
@@ -32,7 +32,7 @@ namespace eShopPorted.Controllers
                 return BadRequest();
             }
 
-            var item = _service.FindCatalogItem(catalogItemId);
+            var item = await _service.FindCatalogItemAsync(catalogItemId, cancellationToken);
             if (item == null)
             {
                 return NotFound();

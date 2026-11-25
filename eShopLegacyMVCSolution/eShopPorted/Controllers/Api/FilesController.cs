@@ -1,7 +1,9 @@
-﻿using eShopLegacy.Utilities;
+﻿using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using eShopLegacy.Utilities;
 using eShopPorted.Services;
 using Microsoft.AspNetCore.Mvc;
-using System.Linq;
 
 namespace eShopPorted.Controllers
 {
@@ -17,9 +19,9 @@ namespace eShopPorted.Controllers
         }
 
         [HttpGet]
-        public IActionResult Index()
+        public async Task<IActionResult> Index(CancellationToken cancellationToken)
         {
-            var brands = _service.GetCatalogBrands()
+            var brands = (await _service.GetCatalogBrandsAsync(cancellationToken))
                 .Select(b => new BrandDTO
                 {
                     Id = b.Id,
@@ -27,7 +29,7 @@ namespace eShopPorted.Controllers
                 }).ToList();
 
             var serializer = new Serializing();
-            var data = serializer.SerializeJson(brands);
+            var data = await serializer.SerializeJsonAsync(brands, cancellationToken);
 
             return File(data, "application/json");
         }

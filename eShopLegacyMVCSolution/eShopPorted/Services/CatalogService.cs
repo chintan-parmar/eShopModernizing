@@ -1,6 +1,8 @@
-﻿using eShopPorted.Models;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using eShopPorted.Models;
 using eShopPorted.ViewModel;
 using Microsoft.EntityFrameworkCore;
 
@@ -8,68 +10,74 @@ namespace eShopPorted.Services
 {
     public class CatalogService : ICatalogService
     {
-        private CatalogDBContext db;
+        private readonly CatalogDBContext _db;
 
-        public CatalogService(CatalogDBContext db)            
+        public CatalogService(CatalogDBContext db)
         {
-            this.db = db;
+            _db = db;
         }
 
-        public PaginatedItemsViewModel<CatalogItem> GetCatalogItemsPaginated(int pageSize, int pageIndex)
+        public async Task<PaginatedItemsViewModel<CatalogItem>> GetCatalogItemsPaginatedAsync(
+            int pageSize,
+            int pageIndex,
+            CancellationToken cancellationToken = default)
         {
-            var totalItems = db.CatalogItems.LongCount();
+            var totalItems = await _db.CatalogItems.LongCountAsync(cancellationToken);
 
-            var itemsOnPage = db.CatalogItems
+            var itemsOnPage = await _db.CatalogItems
+                .AsNoTracking()
                 .Include(c => c.CatalogBrand)
                 .Include(c => c.CatalogType)
                 .OrderBy(c => c.Id)
                 .Skip(pageSize * pageIndex)
                 .Take(pageSize)
-                .ToList();
+                .ToListAsync(cancellationToken);
 
             return new PaginatedItemsViewModel<CatalogItem>(
                 pageIndex, pageSize, totalItems, itemsOnPage);
         }
 
-        public CatalogItem FindCatalogItem(int id)
+        public Task<CatalogItem> FindCatalogItemAsync(int id, CancellationToken cancellationToken = default)
         {
-            return db.CatalogItems
+            return _db.CatalogItems
                 .AsNoTracking()
                 .Include(c => c.CatalogBrand)
                 .Include(c => c.CatalogType)
-                .FirstOrDefault(ci => ci.Id == id);
-        }
-        public IEnumerable<CatalogType> GetCatalogTypes()
-        {
-            return db.CatalogTypes;
+                .FirstOrDefaultAsync(ci => ci.Id == id, cancellationToken);
         }
 
-        public IEnumerable<CatalogBrand> GetCatalogBrands()
+        public async Task<IReadOnlyList<CatalogType>> GetCatalogTypesAsync(CancellationToken cancellationToken = default)
         {
-            return db.CatalogBrands;
+            return await _db.CatalogTypes
+                .AsNoTracking()
+                .OrderBy(t => t.Id)
+                .ToListAsync(cancellationToken);
         }
 
-        public void CreateCatalogItem(CatalogItem catalogItem)
+        public async Task<IReadOnlyList<CatalogBrand>> GetCatalogBrandsAsync(CancellationToken cancellationToken = default)
         {
-            db.CatalogItems.Add(catalogItem);
-            db.SaveChanges();
+            return await _db.CatalogBrands
+                .AsNoTracking()
+                .OrderBy(b => b.Id)
+                .ToListAsync(cancellationToken);
         }
 
-        public void UpdateCatalogItem(CatalogItem catalogItem)
+        public async Task CreateCatalogItemAsync(CatalogItem catalogItem, CancellationToken cancellationToken = default)
         {
-            db.Entry(catalogItem).State = EntityState.Modified;
-            db.SaveChanges();
+            await _db.CatalogItems.AddAsync(catalogItem, cancellationToken);
+            await _db.SaveChangesAsync(cancellationToken);
         }
 
-        public void RemoveCatalogItem(CatalogItem catalogItem)
+        public async Task UpdateCatalogItemAsync(CatalogItem catalogItem, CancellationToken cancellationToken = default)
         {
-            db.CatalogItems.Remove(catalogItem);
-            db.SaveChanges();
+            _db.Entry(catalogItem).State = EntityState.Modified;
+            await _db.SaveChangesAsync(cancellationToken);
         }
 
-        public void Dispose()
+        public async Task RemoveCatalogItemAsync(CatalogItem catalogItem, CancellationToken cancellationToken = default)
         {
-            db.Dispose();
+            _db.CatalogItems.Remove(catalogItem);
+            await _db.SaveChangesAsync(cancellationToken);
         }
     }
 }

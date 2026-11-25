@@ -1,18 +1,19 @@
 ﻿using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using eShopPorted.Models;
-using System;
 using eShopPorted.ViewModel;
 
 namespace eShopPorted.Services
 {
-    public interface ICatalogService : IDisposable
+    public interface ICatalogService
     {
-        CatalogItem FindCatalogItem(int id);
-        IEnumerable<CatalogBrand> GetCatalogBrands();
-        PaginatedItemsViewModel<CatalogItem> GetCatalogItemsPaginated(int pageSize, int pageIndex);
-        IEnumerable<CatalogType> GetCatalogTypes();
-        void CreateCatalogItem(CatalogItem catalogItem);
-        void UpdateCatalogItem(CatalogItem catalogItem);
-        void RemoveCatalogItem(CatalogItem catalogItem);
+        Task<CatalogItem> FindCatalogItemAsync(int id, CancellationToken cancellationToken = default);
+        Task<IReadOnlyList<CatalogBrand>> GetCatalogBrandsAsync(CancellationToken cancellationToken = default);
+        Task<PaginatedItemsViewModel<CatalogItem>> GetCatalogItemsPaginatedAsync(int pageSize, int pageIndex, CancellationToken cancellationToken = default);
+        Task<IReadOnlyList<CatalogType>> GetCatalogTypesAsync(CancellationToken cancellationToken = default);
+        Task CreateCatalogItemAsync(CatalogItem catalogItem, CancellationToken cancellationToken = default);
+        Task UpdateCatalogItemAsync(CatalogItem catalogItem, CancellationToken cancellationToken = default);
+        Task RemoveCatalogItemAsync(CatalogItem catalogItem, CancellationToken cancellationToken = default);
     }
 }

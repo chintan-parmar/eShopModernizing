@@ -1,6 +1,8 @@
-﻿using eShopPorted.Services;
+﻿using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using eShopPorted.Services;
 using Microsoft.AspNetCore.Mvc;
-using System.Linq;
 
 namespace eShopPorted.Controllers
 {
@@ -16,16 +18,17 @@ namespace eShopPorted.Controllers
         }
 
         [HttpGet]
-        public IActionResult Index()
+        public async Task<IActionResult> Index(CancellationToken cancellationToken)
         {
-            var brands = _service.GetCatalogBrands();
+            var brands = await _service.GetCatalogBrandsAsync(cancellationToken);
             return Ok(brands);
         }
 
         [HttpGet("{id:int}")]
-        public IActionResult Get(int id)
+        public async Task<IActionResult> Get(int id, CancellationToken cancellationToken)
         {
-            var brand = _service.GetCatalogBrands().FirstOrDefault(x => x.Id == id);
+            var brands = await _service.GetCatalogBrandsAsync(cancellationToken);
+            var brand = brands.FirstOrDefault(x => x.Id == id);
             if (brand == null)
             {
                 return NotFound();
@@ -35,9 +38,10 @@ namespace eShopPorted.Controllers
         }
 
         [HttpDelete("{id:int}")]
-        public IActionResult Delete(int id)
+        public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
         {
-            var brandToDelete = _service.GetCatalogBrands().FirstOrDefault(x => x.Id == id);
+            var brands = await _service.GetCatalogBrandsAsync(cancellationToken);
+            var brandToDelete = brands.FirstOrDefault(x => x.Id == id);
             if (brandToDelete == null)
             {
                 return NotFound();
