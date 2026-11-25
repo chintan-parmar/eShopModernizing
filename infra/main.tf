@@ -1,7 +1,20 @@
+# Staged Deployment Workflow:
+#   Stage 1 (Artifact Registry only):
+#     terraform -chdir=infra apply -target=google_artifact_registry_repository.app -var="image_tag=<git-sha>"
+#   Build & push linux/amd64 image:
+#     docker build --platform linux/amd64 -t australia-southeast1-docker.pkg.dev/chintan-sandbox/eshop-catalog/eshop-catalog:<git-sha> eShopLegacyMVCSolution
+#     docker push australia-southeast1-docker.pkg.dev/chintan-sandbox/eshop-catalog/eshop-catalog:<git-sha>
+#   Stage 2 (Cloud SQL, GCS, Secret Manager, Cloud Run Migration Job & Service):
+#     terraform -chdir=infra apply -var="image_tag=<git-sha>"
+#   Stage 3 (Run EF Core migration bundle job once SQL user DB grants are verified):
+#     gcloud run jobs execute eshop-catalog-migrate --region=australia-southeast1 --wait
+
 locals {
   required_apis = toset([
     "artifactregistry.googleapis.com",
+    "cloudresourcemanager.googleapis.com",
     "compute.googleapis.com",
+    "iam.googleapis.com",
     "run.googleapis.com",
     "secretmanager.googleapis.com",
     "servicenetworking.googleapis.com",
@@ -9,7 +22,8 @@ locals {
     "storage.googleapis.com",
   ])
 
-  image_uri = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.app.repository_id}/${var.service_name}:${var.image_tag}"
+  repository_url = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.app.repository_id}"
+  image_uri      = "${local.repository_url}/${var.service_name}:${var.image_tag}"
 }
 
 resource "google_project_service" "apis" {
@@ -56,7 +70,7 @@ resource "google_service_networking_connection" "private_vpc_connection" {
 }
 
 # ---------------------------------------------------------------------------
-# Artifact Registry
+# Artifact Registry (Stage 1 target: google_artifact_registry_repository.app)
 # ---------------------------------------------------------------------------
 
 resource "google_artifact_registry_repository" "app" {
@@ -69,7 +83,7 @@ resource "google_artifact_registry_repository" "app" {
 }
 
 # ---------------------------------------------------------------------------
-# Cloud Storage Bucket for Catalog Images
+# Cloud Storage Bucket for Catalog Images & Data Protection Keys
 # ---------------------------------------------------------------------------
 
 resource "random_id" "bucket_suffix" {
@@ -185,6 +199,8 @@ resource "google_secret_manager_secret_version" "db_connection" {
 resource "google_service_account" "cloudrun" {
   account_id   = "${var.service_name}-sa"
   display_name = "Cloud Run runtime and migration service account for ${var.service_name}"
+
+  depends_on = [google_project_service.apis["iam.googleapis.com"]]
 }
 
 resource "google_secret_manager_secret_iam_member" "cloudrun_db_secret" {
@@ -199,22 +215,32 @@ resource "google_storage_bucket_iam_member" "cloudrun_pics_viewer" {
   member = "serviceAccount:${google_service_account.cloudrun.email}"
 }
 
-resource "google_project_iam_member" "cloudrun_sql_client" {
-  project = var.project_id
-  role    = "roles/cloudsql.client"
-  member  = "serviceAccount:${google_service_account.cloudrun.email}"
+resource "google_storage_bucket_iam_member" "cloudrun_dataprotection_admin" {
+  bucket = google_storage_bucket.catalog_pics.name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${google_service_account.cloudrun.email}"
+
+  condition {
+    title       = "dataprotection_prefix_only"
+    description = "Grant objectAdmin only on objects under the dataprotection/ prefix for ASP.NET Core Data Protection keys."
+    expression  = "resource.name.startsWith(\"projects/_/buckets/${google_storage_bucket.catalog_pics.name}/objects/dataprotection/\")"
+  }
 }
 
 resource "google_project_iam_member" "cloudrun_log_writer" {
   project = var.project_id
   role    = "roles/logging.logWriter"
   member  = "serviceAccount:${google_service_account.cloudrun.email}"
+
+  depends_on = [google_project_service.apis["cloudresourcemanager.googleapis.com"]]
 }
 
 resource "google_project_iam_member" "cloudrun_metric_writer" {
   project = var.project_id
   role    = "roles/monitoring.metricWriter"
   member  = "serviceAccount:${google_service_account.cloudrun.email}"
+
+  depends_on = [google_project_service.apis["cloudresourcemanager.googleapis.com"]]
 }
 
 # ---------------------------------------------------------------------------
@@ -345,6 +371,16 @@ resource "google_cloud_run_v2_service" "app" {
       }
 
       env {
+        name  = "DataProtection__BucketName"
+        value = google_storage_bucket.catalog_pics.name
+      }
+
+      env {
+        name  = "DataProtection__ObjectName"
+        value = "dataprotection/keys.xml"
+      }
+
+      env {
         name = "ConnectionStrings__DefaultConnection"
         value_source {
           secret_key_ref {
@@ -382,6 +418,7 @@ resource "google_cloud_run_v2_service" "app" {
     google_secret_manager_secret_version.db_connection,
     google_secret_manager_secret_iam_member.cloudrun_db_secret,
     google_storage_bucket_iam_member.cloudrun_pics_viewer,
+    google_storage_bucket_iam_member.cloudrun_dataprotection_admin,
   ]
 }
 

@@ -17,9 +17,13 @@ variable "service_name" {
 }
 
 variable "image_tag" {
-  description = "Container image tag in Artifact Registry."
+  description = "Immutable container image tag in Artifact Registry (for example, a git commit SHA). Required; 'latest' is disallowed."
   type        = string
-  default     = "latest"
+
+  validation {
+    condition     = length(trimspace(var.image_tag)) > 0 && lower(trimspace(var.image_tag)) != "latest"
+    error_message = "image_tag must be a non-empty immutable tag (such as a git commit SHA) and cannot be 'latest'."
+  }
 }
 
 variable "sql_database_version" {

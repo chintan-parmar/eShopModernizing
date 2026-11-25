@@ -8,13 +8,18 @@ output "migration_job_name" {
   value       = google_cloud_run_v2_job.migrate.name
 }
 
+output "artifact_registry_repository_url" {
+  description = "Artifact Registry Docker repository base URL (created in Stage 1)."
+  value       = local.repository_url
+}
+
 output "artifact_registry_image_uri" {
-  description = "Target container image URI in Artifact Registry."
+  description = "Target immutable container image URI in Artifact Registry."
   value       = local.image_uri
 }
 
 output "catalog_images_bucket_name" {
-  description = "Cloud Storage bucket hosting catalog product images."
+  description = "Cloud Storage bucket hosting catalog product images and Data Protection keys."
   value       = google_storage_bucket.catalog_pics.name
 }
 
