@@ -10,6 +10,7 @@ using Microsoft.Extensions.Logging;
 
 namespace eShopPorted.Controllers
 {
+    [AutoValidateAntiforgeryToken]
     public class CatalogController : Controller
     {
         private readonly ICatalogService _service;

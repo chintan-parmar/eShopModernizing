@@ -30,7 +30,7 @@ namespace eShopPorted
             var port = Environment.GetEnvironmentVariable("PORT");
             if (!string.IsNullOrWhiteSpace(port))
             {
-                builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+                builder.WebHost.UseSetting("http_ports", port);
             }
 
             builder.Logging.ClearProviders();
@@ -48,10 +48,7 @@ namespace eShopPorted
                 });
             }
 
-            builder.Services.AddControllersWithViews(options =>
-            {
-                options.Filters.Add(new AutoValidateAntiforgeryTokenAttribute());
-            });
+            builder.Services.AddControllersWithViews();
             builder.Services.AddHealthChecks();
 
             builder.Services

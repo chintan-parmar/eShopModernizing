@@ -1,4 +1,5 @@
-﻿using System.Reflection;
+﻿using System;
+using System.Reflection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 
@@ -38,8 +39,16 @@ namespace eShopPorted.Models
     {
         public CatalogDBContext CreateDbContext(string[] args)
         {
+            var connectionString =
+                Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
+                ?? "Server=tcp:localhost,1433;Database=CatalogDb;Encrypt=True;TrustServerCertificate=True;";
+
             var optionsBuilder = new DbContextOptionsBuilder<CatalogDBContext>()
-                .UseSqlServer("Server=tcp:localhost,1433;Database=CatalogDb;Encrypt=True;TrustServerCertificate=True;");
+                .UseSqlServer(connectionString, sqlOptions =>
+                    sqlOptions.EnableRetryOnFailure(
+                        maxRetryCount: 5,
+                        maxRetryDelay: TimeSpan.FromSeconds(10),
+                        errorNumbersToAdd: null));
 
             return new CatalogDBContext(optionsBuilder.Options);
         }

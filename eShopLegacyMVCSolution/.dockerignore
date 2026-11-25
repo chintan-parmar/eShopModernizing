@@ -1,0 +1,13 @@
+# Exclude legacy .NET Framework reference project and migration scripts
+src/
+Convert-ToPackageReference.ps1
+Convert-ToPackageReference.xsl
+
+# Exclude build outputs, IDE caches, and local dev settings
+**/bin/
+**/obj/
+.vs/
+*.user
+*.suo
+eShopPorted/appsettings.Development.json
+eShopPorted/Properties/launchSettings.json
