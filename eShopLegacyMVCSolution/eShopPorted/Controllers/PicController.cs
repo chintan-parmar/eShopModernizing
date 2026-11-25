@@ -1,31 +1,34 @@
 ﻿using System.Threading;
 using System.Threading.Tasks;
 using eShopPorted.Services;
-using log4net;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 
 namespace eShopPorted.Controllers
 {
     public class PicController : Controller
     {
-        private static readonly ILog _log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
-
         public const string GetPicRouteName = "GetPicRouteTemplate";
 
         private readonly ICatalogService _service;
         private readonly ICatalogImageStorage _imageStorage;
+        private readonly ILogger<PicController> _logger;
 
-        public PicController(ICatalogService service, ICatalogImageStorage imageStorage)
+        public PicController(
+            ICatalogService service,
+            ICatalogImageStorage imageStorage,
+            ILogger<PicController> logger)
         {
             _service = service;
             _imageStorage = imageStorage;
+            _logger = logger;
         }
 
         // GET: items/5/pic
         [HttpGet("items/{catalogItemId:int}/pic", Name = GetPicRouteName)]
         public async Task<IActionResult> Index(int catalogItemId, CancellationToken cancellationToken)
         {
-            _log.Info($"Now loading... /items/{catalogItemId}/pic");
+            _logger.LogInformation("Loading picture for catalog item {CatalogItemId}", catalogItemId);
 
             if (catalogItemId <= 0)
             {

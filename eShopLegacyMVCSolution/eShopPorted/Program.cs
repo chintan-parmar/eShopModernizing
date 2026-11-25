@@ -10,21 +10,40 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
 namespace eShopPorted
 {
     public class Program
     {
-        public static DateTime StartTime { get; } = DateTime.UtcNow;
-
         public static async Task Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
+
+            builder.WebHost.ConfigureKestrel(options =>
+            {
+                options.AddServerHeader = false;
+            });
 
             var port = Environment.GetEnvironmentVariable("PORT");
             if (!string.IsNullOrWhiteSpace(port))
             {
                 builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+            }
+
+            builder.Logging.ClearProviders();
+            if (builder.Environment.IsDevelopment())
+            {
+                builder.Logging.AddSimpleConsole();
+            }
+            else
+            {
+                builder.Logging.AddJsonConsole(options =>
+                {
+                    options.IncludeScopes = true;
+                    options.TimestampFormat = "yyyy-MM-ddTHH:mm:ss.fffZ";
+                    options.UseUtcTimestamp = true;
+                });
             }
 
             builder.Services.AddControllersWithViews();

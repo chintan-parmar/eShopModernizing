@@ -3,27 +3,27 @@ using System.Threading;
 using System.Threading.Tasks;
 using eShopPorted.Models;
 using eShopPorted.Services;
-using log4net;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.Extensions.Logging;
 
 namespace eShopPorted.Controllers
 {
     public class CatalogController : Controller
     {
-        private static readonly ILog _log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
-
         private readonly ICatalogService _service;
+        private readonly ILogger<CatalogController> _logger;
 
-        public CatalogController(ICatalogService service)
+        public CatalogController(ICatalogService service, ILogger<CatalogController> logger)
         {
             _service = service;
+            _logger = logger;
         }
 
         // GET /[?pageSize=3&pageIndex=10]
         public async Task<IActionResult> Index(int pageSize = 10, int pageIndex = 0, CancellationToken cancellationToken = default)
         {
-            _log.Info($"Now loading... /Catalog/Index?pageSize={pageSize}&pageIndex={pageIndex}");
+            _logger.LogInformation("Loading catalog index page {PageIndex} with size {PageSize}", pageIndex, pageSize);
             var paginatedItems = await _service.GetCatalogItemsPaginatedAsync(pageSize, pageIndex, cancellationToken);
             ChangeUriPlaceholder(paginatedItems.Data);
             return View(paginatedItems);
@@ -32,7 +32,7 @@ namespace eShopPorted.Controllers
         // GET: Catalog/Details/5
         public async Task<IActionResult> Details(int? id, CancellationToken cancellationToken = default)
         {
-            _log.Info($"Now loading... /Catalog/Details?id={id}");
+            _logger.LogInformation("Loading catalog item details for {CatalogItemId}", id);
             if (id == null)
             {
                 return BadRequest();
@@ -51,7 +51,7 @@ namespace eShopPorted.Controllers
         // GET: Catalog/Create
         public async Task<IActionResult> Create(CancellationToken cancellationToken = default)
         {
-            _log.Info("Now loading... /Catalog/Create");
+            _logger.LogInformation("Loading catalog create form");
             await PopulateDropDownsAsync(null, null, cancellationToken);
             return View(new CatalogItem());
         }
@@ -63,7 +63,7 @@ namespace eShopPorted.Controllers
             [Bind("Id,Name,Description,Price,CatalogTypeId,CatalogBrandId,AvailableStock,RestockThreshold,MaxStockThreshold,OnReorder")] CatalogItem catalogItem,
             CancellationToken cancellationToken = default)
         {
-            _log.Info($"Now processing... /Catalog/Create?catalogItemName={catalogItem.Name}");
+            _logger.LogInformation("Creating catalog item {CatalogItemName}", catalogItem.Name);
             catalogItem.PictureFileName = CatalogItem.DefaultPictureName;
             if (ModelState.IsValid)
             {
@@ -78,7 +78,7 @@ namespace eShopPorted.Controllers
         // GET: Catalog/Edit/5
         public async Task<IActionResult> Edit(int? id, CancellationToken cancellationToken = default)
         {
-            _log.Info($"Now loading... /Catalog/Edit?id={id}");
+            _logger.LogInformation("Loading catalog edit form for {CatalogItemId}", id);
             if (id == null)
             {
                 return BadRequest();
@@ -102,7 +102,7 @@ namespace eShopPorted.Controllers
             [Bind("Id,Name,Description,Price,CatalogTypeId,CatalogBrandId,AvailableStock,RestockThreshold,MaxStockThreshold,OnReorder")] CatalogItem catalogItem,
             CancellationToken cancellationToken = default)
         {
-            _log.Info($"Now processing... /Catalog/Edit?id={catalogItem.Id}");
+            _logger.LogInformation("Updating catalog item {CatalogItemId}", catalogItem.Id);
             var existingItem = await _service.FindCatalogItemAsync(catalogItem.Id, cancellationToken);
             if (existingItem == null)
             {
@@ -124,7 +124,7 @@ namespace eShopPorted.Controllers
         // GET: Catalog/Delete/5
         public async Task<IActionResult> Delete(int? id, CancellationToken cancellationToken = default)
         {
-            _log.Info($"Now loading... /Catalog/Delete?id={id}");
+            _logger.LogInformation("Loading catalog delete confirmation for {CatalogItemId}", id);
             if (id == null)
             {
                 return BadRequest();
@@ -145,7 +145,7 @@ namespace eShopPorted.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id, CancellationToken cancellationToken = default)
         {
-            _log.Info($"Now processing... /Catalog/DeleteConfirmed?id={id}");
+            _logger.LogInformation("Deleting catalog item {CatalogItemId}", id);
             var catalogItem = await _service.FindCatalogItemAsync(id, cancellationToken);
             if (catalogItem != null)
             {
