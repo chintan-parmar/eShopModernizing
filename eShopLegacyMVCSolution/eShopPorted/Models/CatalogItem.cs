@@ -25,6 +25,7 @@ namespace eShopPorted.Models
         public decimal Price { get; set; }
 
         [Display(Name = "Picture name")]
+        [RegularExpression(@"^[a-zA-Z0-9._-]+$", ErrorMessage = "Invalid picture file name.")]
         public string PictureFileName { get; set; }
 
         public string PictureUri { get; set; }

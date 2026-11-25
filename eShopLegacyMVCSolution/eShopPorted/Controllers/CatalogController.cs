@@ -1,153 +1,180 @@
 ﻿using System.Collections.Generic;
-using System.Net;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Rendering;
+using System.Threading;
+using System.Threading.Tasks;
 using eShopPorted.Models;
 using eShopPorted.Services;
-using log4net;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.Extensions.Logging;
 
 namespace eShopPorted.Controllers
 {
+    [AutoValidateAntiforgeryToken]
     public class CatalogController : Controller
     {
-        private static readonly ILog _log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
+        private readonly ICatalogService _service;
+        private readonly ILogger<CatalogController> _logger;
 
-        private ICatalogService service;
-
-        public CatalogController(ICatalogService service)
+        public CatalogController(ICatalogService service, ILogger<CatalogController> logger)
         {
-            this.service = service;
+            _service = service;
+            _logger = logger;
         }
 
         // GET /[?pageSize=3&pageIndex=10]
-        public ActionResult Index(int pageSize = 10, int pageIndex = 0)
+        public async Task<IActionResult> Index(int pageSize = 10, int pageIndex = 0, CancellationToken cancellationToken = default)
         {
-            _log.Info($"Now loading... /Catalog/Index?pageSize={pageSize}&pageIndex={pageIndex}");
-            var paginatedItems = service.GetCatalogItemsPaginated(pageSize, pageIndex);
+            _logger.LogInformation("Loading catalog index page {PageIndex} with size {PageSize}", pageIndex, pageSize);
+            var paginatedItems = await _service.GetCatalogItemsPaginatedAsync(pageSize, pageIndex, cancellationToken);
             ChangeUriPlaceholder(paginatedItems.Data);
             return View(paginatedItems);
         }
 
         // GET: Catalog/Details/5
-        public ActionResult Details(int? id)
+        public async Task<IActionResult> Details(int? id, CancellationToken cancellationToken = default)
         {
-            _log.Info($"Now loading... /Catalog/Details?id={id}");
+            _logger.LogInformation("Loading catalog item details for {CatalogItemId}", id);
             if (id == null)
             {
                 return BadRequest();
             }
-            CatalogItem catalogItem = service.FindCatalogItem(id.Value);
+
+            var catalogItem = await _service.FindCatalogItemAsync(id.Value, cancellationToken);
             if (catalogItem == null)
             {
                 return NotFound();
             }
-            AddUriPlaceHolder(catalogItem);
 
+            AddUriPlaceHolder(catalogItem);
             return View(catalogItem);
         }
 
         // GET: Catalog/Create
-        public ActionResult Create()
+        [Authorize(Policy = CatalogAuthorizationPolicies.CatalogWrite)]
+        public async Task<IActionResult> Create(CancellationToken cancellationToken = default)
         {
-            _log.Info($"Now loading... /Catalog/Create");
-            ViewBag.CatalogBrandId = new SelectList(service.GetCatalogBrands(), "Id", "Brand");
-            ViewBag.CatalogTypeId = new SelectList(service.GetCatalogTypes(), "Id", "Type");
+            _logger.LogInformation("Loading catalog create form");
+            await PopulateDropDownsAsync(null, null, cancellationToken);
             return View(new CatalogItem());
         }
 
         // POST: Catalog/Create
-        // To protect from overposting attacks, please enable the specific properties you want to bind to, for 
-        // more details see https://go.microsoft.com/fwlink/?LinkId=317598.
-[HttpPost]
-[ValidateAntiForgeryToken]
-public ActionResult Create([Bind("Id,Name,Description,Price,PictureFileName,CatalogTypeId,CatalogBrandId,AvailableStock,RestockThreshold,MaxStockThreshold,OnReorder")] CatalogItem catalogItem)
-{
-            _log.Info($"Now processing... /Catalog/Create?catalogItemName={catalogItem.Name}");
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Policy = CatalogAuthorizationPolicies.CatalogWrite)]
+        public async Task<IActionResult> Create(
+            [Bind("Id,Name,Description,Price,CatalogTypeId,CatalogBrandId,AvailableStock,RestockThreshold,MaxStockThreshold,OnReorder")] CatalogItem catalogItem,
+            CancellationToken cancellationToken = default)
+        {
+            _logger.LogInformation("Creating catalog item {CatalogItemName}", catalogItem.Name);
+            catalogItem.PictureFileName = CatalogItem.DefaultPictureName;
             if (ModelState.IsValid)
             {
-                service.CreateCatalogItem(catalogItem);
-                return RedirectToAction("Index");
+                await _service.CreateCatalogItemAsync(catalogItem, cancellationToken);
+                return RedirectToAction(nameof(Index));
             }
 
-            ViewBag.CatalogBrandId = new SelectList(service.GetCatalogBrands(), "Id", "Brand", catalogItem.CatalogBrandId);
-            ViewBag.CatalogTypeId = new SelectList(service.GetCatalogTypes(), "Id", "Type", catalogItem.CatalogTypeId);
+            await PopulateDropDownsAsync(catalogItem.CatalogBrandId, catalogItem.CatalogTypeId, cancellationToken);
             return View(catalogItem);
         }
 
         // GET: Catalog/Edit/5
-        public ActionResult Edit(int? id)
+        [Authorize(Policy = CatalogAuthorizationPolicies.CatalogWrite)]
+        public async Task<IActionResult> Edit(int? id, CancellationToken cancellationToken = default)
         {
-            _log.Info($"Now loading... /Catalog/Edit?id={id}");
+            _logger.LogInformation("Loading catalog edit form for {CatalogItemId}", id);
             if (id == null)
             {
                 return BadRequest();
             }
-            CatalogItem catalogItem = service.FindCatalogItem(id.Value);
+
+            var catalogItem = await _service.FindCatalogItemAsync(id.Value, cancellationToken);
             if (catalogItem == null)
             {
                 return NotFound();
             }
+
             AddUriPlaceHolder(catalogItem);
-            ViewBag.CatalogBrandId = new SelectList(service.GetCatalogBrands(), "Id", "Brand", catalogItem.CatalogBrandId);
-            ViewBag.CatalogTypeId = new SelectList(service.GetCatalogTypes(), "Id", "Type", catalogItem.CatalogTypeId);
+            await PopulateDropDownsAsync(catalogItem.CatalogBrandId, catalogItem.CatalogTypeId, cancellationToken);
             return View(catalogItem);
         }
 
         // POST: Catalog/Edit/5
-        // To protect from overposting attacks, please enable the specific properties you want to bind to, for 
-        // more details see https://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public ActionResult Edit([Bind("Id,Name,Description,Price,PictureFileName,CatalogTypeId,CatalogBrandId,AvailableStock,RestockThreshold,MaxStockThreshold,OnReorder")] CatalogItem catalogItem)
+        [Authorize(Policy = CatalogAuthorizationPolicies.CatalogWrite)]
+        public async Task<IActionResult> Edit(
+            [Bind("Id,Name,Description,Price,CatalogTypeId,CatalogBrandId,AvailableStock,RestockThreshold,MaxStockThreshold,OnReorder")] CatalogItem catalogItem,
+            CancellationToken cancellationToken = default)
         {
-            _log.Info($"Now processing... /Catalog/Edit?id={catalogItem.Id}");
+            _logger.LogInformation("Updating catalog item {CatalogItemId}", catalogItem.Id);
+            var existingItem = await _service.FindCatalogItemAsync(catalogItem.Id, cancellationToken);
+            if (existingItem == null)
+            {
+                return NotFound();
+            }
+
+            catalogItem.PictureFileName = existingItem.PictureFileName;
             if (ModelState.IsValid)
             {
-                service.UpdateCatalogItem(catalogItem);
-                return RedirectToAction("Index");
+                await _service.UpdateCatalogItemAsync(catalogItem, cancellationToken);
+                return RedirectToAction(nameof(Index));
             }
-            ViewBag.CatalogBrandId = new SelectList(service.GetCatalogBrands(), "Id", "Brand", catalogItem.CatalogBrandId);
-            ViewBag.CatalogTypeId = new SelectList(service.GetCatalogTypes(), "Id", "Type", catalogItem.CatalogTypeId);
+
+            AddUriPlaceHolder(catalogItem);
+            await PopulateDropDownsAsync(catalogItem.CatalogBrandId, catalogItem.CatalogTypeId, cancellationToken);
             return View(catalogItem);
         }
 
         // GET: Catalog/Delete/5
-        public ActionResult Delete(int? id)
+        [Authorize(Policy = CatalogAuthorizationPolicies.CatalogWrite)]
+        public async Task<IActionResult> Delete(int? id, CancellationToken cancellationToken = default)
         {
-            _log.Info($"Now loading... /Catalog/Delete?id={id}");
+            _logger.LogInformation("Loading catalog delete confirmation for {CatalogItemId}", id);
             if (id == null)
             {
                 return BadRequest();
             }
-            CatalogItem catalogItem = service.FindCatalogItem(id.Value);
+
+            var catalogItem = await _service.FindCatalogItemAsync(id.Value, cancellationToken);
             if (catalogItem == null)
             {
                 return NotFound();
             }
-            AddUriPlaceHolder(catalogItem);
 
+            AddUriPlaceHolder(catalogItem);
             return View(catalogItem);
         }
 
         // POST: Catalog/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
-        public ActionResult DeleteConfirmed(int id)
+        [Authorize(Policy = CatalogAuthorizationPolicies.CatalogWrite)]
+        public async Task<IActionResult> DeleteConfirmed(int id, CancellationToken cancellationToken = default)
         {
-            _log.Info($"Now processing... /Catalog/DeleteConfirmed?id={id}");
-            CatalogItem catalogItem = service.FindCatalogItem(id);
-            service.RemoveCatalogItem(catalogItem);
-            return RedirectToAction("Index");
+            _logger.LogInformation("Deleting catalog item {CatalogItemId}", id);
+            var catalogItem = await _service.FindCatalogItemAsync(id, cancellationToken);
+            if (catalogItem != null)
+            {
+                await _service.RemoveCatalogItemAsync(catalogItem, cancellationToken);
+            }
+
+            return RedirectToAction(nameof(Index));
         }
 
-        protected override void Dispose(bool disposing)
+        [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
+        public IActionResult Error()
         {
-            _log.Debug($"Now disposing");
-            if (disposing)
-            {
-                service.Dispose();
-            }
-            base.Dispose(disposing);
+            return View();
+        }
+
+        private async Task PopulateDropDownsAsync(int? selectedBrandId, int? selectedTypeId, CancellationToken cancellationToken)
+        {
+            var brands = await _service.GetCatalogBrandsAsync(cancellationToken);
+            var types = await _service.GetCatalogTypesAsync(cancellationToken);
+            ViewBag.CatalogBrandId = new SelectList(brands, "Id", "Brand", selectedBrandId);
+            ViewBag.CatalogTypeId = new SelectList(types, "Id", "Type", selectedTypeId);
         }
 
         private void ChangeUriPlaceholder(IEnumerable<CatalogItem> items)
@@ -160,7 +187,8 @@ public ActionResult Create([Bind("Id,Name,Description,Price,PictureFileName,Cata
 
         private void AddUriPlaceHolder(CatalogItem item)
         {
-            item.PictureUri = $"/Pics/{item.Id}.png";
+            item.PictureUri = Url.RouteUrl(PicController.GetPicRouteName, new { catalogItemId = item.Id })
+                ?? $"/items/{item.Id}/pic";
         }
     }
 }

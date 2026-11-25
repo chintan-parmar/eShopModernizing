@@ -1,92 +1,54 @@
-﻿using eShopPorted.Services;
-using log4net;
-using System.IO;
-using System.Net;
-using System.Web.Mvc;
+﻿using System.Threading;
+using System.Threading.Tasks;
+using eShopPorted.Services;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 
 namespace eShopPorted.Controllers
 {
     public class PicController : Controller
     {
-        private static readonly ILog _log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
-
         public const string GetPicRouteName = "GetPicRouteTemplate";
 
-        private ICatalogService service;
+        private readonly ICatalogService _service;
+        private readonly ICatalogImageStorage _imageStorage;
+        private readonly ILogger<PicController> _logger;
 
-        public PicController(ICatalogService service)
+        public PicController(
+            ICatalogService service,
+            ICatalogImageStorage imageStorage,
+            ILogger<PicController> logger)
         {
-            this.service = service;
+            _service = service;
+            _imageStorage = imageStorage;
+            _logger = logger;
         }
 
-        // GET: Pic/5.png
-        [HttpGet]
-        [Route("items/{catalogItemId:int}/pic", Name = GetPicRouteName)]
-        public ActionResult Index(int catalogItemId)
+        // GET: items/5/pic
+        [HttpGet("items/{catalogItemId:int}/pic", Name = GetPicRouteName)]
+        public async Task<IActionResult> Index(int catalogItemId, CancellationToken cancellationToken)
         {
-            _log.Info($"Now loading... /items/Index?{catalogItemId}/pic");
+            _logger.LogInformation("Loading picture for catalog item {CatalogItemId}", catalogItemId);
 
             if (catalogItemId <= 0)
             {
-                return new HttpStatusCodeResult(HttpStatusCode.BadRequest);
+                return BadRequest();
             }
 
-            var item = service.FindCatalogItem(catalogItemId);
-
-            if (item != null)
+            var item = await _service.FindCatalogItemAsync(catalogItemId, cancellationToken);
+            if (item == null)
             {
-                var webRoot = "";
-                //var webRoot = Server.MapPath("~/Pics");
-                var path = Path.Combine(webRoot, item.PictureFileName);
-
-                string imageFileExtension = Path.GetExtension(item.PictureFileName);
-                string mimetype = GetImageMimeTypeFromImageFileExtension(imageFileExtension);
-
-                var buffer = System.IO.File.ReadAllBytes(path);
-
-                return File(buffer, mimetype);
+                return NotFound();
             }
 
-            return HttpNotFound();
-        }
-
-        private string GetImageMimeTypeFromImageFileExtension(string extension)
-        {
-            string mimetype;
-
-            switch (extension)
+            var image = await _imageStorage.GetImageAsync(item.PictureFileName, cancellationToken);
+            if (image == null)
             {
-                case ".png":
-                    mimetype = "image/png";
-                    break;
-                case ".gif":
-                    mimetype = "image/gif";
-                    break;
-                case ".jpg":
-                case ".jpeg":
-                    mimetype = "image/jpeg";
-                    break;
-                case ".bmp":
-                    mimetype = "image/bmp";
-                    break;
-                case ".tiff":
-                    mimetype = "image/tiff";
-                    break;
-                case ".wmf":
-                    mimetype = "image/wmf";
-                    break;
-                case ".jp2":
-                    mimetype = "image/jp2";
-                    break;
-                case ".svg":
-                    mimetype = "image/svg+xml";
-                    break;
-                default:
-                    mimetype = "application/octet-stream";
-                    break;
+                return NotFound();
             }
 
-            return mimetype;
+            Response.Headers.CacheControl = "public,max-age=3600";
+            return File(image.Stream, image.ContentType);
         }
     }
 }

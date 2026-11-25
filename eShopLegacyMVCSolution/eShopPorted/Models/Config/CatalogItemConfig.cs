@@ -12,11 +12,16 @@ namespace eShopPorted.Models.Config
 
             builder.HasKey(ci => ci.Id);
 
+            builder.Property(ci => ci.Id)
+                .UseHiLo("catalog_hilo")
+                .IsRequired();
+
             builder.Property(ci => ci.Name)
                 .IsRequired()
                 .HasMaxLength(50);
 
             builder.Property(ci => ci.Price)
+                .HasPrecision(18, 2)
                 .IsRequired();
 
             builder.Property(ci => ci.PictureFileName)

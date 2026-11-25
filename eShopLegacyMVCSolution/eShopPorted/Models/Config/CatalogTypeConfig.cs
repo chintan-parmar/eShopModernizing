@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using eShopPorted.Models.Infrastructure;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace eShopPorted.Models.Config
@@ -12,17 +13,15 @@ namespace eShopPorted.Models.Config
             builder.HasKey(ci => ci.Id);
 
             builder.Property(ci => ci.Id)
-               .IsRequired();
+                .UseHiLo("catalog_type_hilo")
+                .IsRequired();
 
             builder.Property(cb => cb.Type)
                 .IsRequired()
                 .HasMaxLength(100);
 
             builder.HasData(
-                new CatalogType { Id = 1, Type = "Mug" },
-                new CatalogType { Id = 2, Type = "T-Shirt" },
-                new CatalogType { Id = 3, Type = "Sheet" },
-                new CatalogType { Id = 4, Type = "USB Memory Stick" }
+                PreconfiguredData.GetPreconfiguredCatalogTypes()
             );
         }
     }
