@@ -2,10 +2,12 @@
 using System.Threading.Tasks;
 using eShopPorted.Models;
 using eShopPorted.Services;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -46,8 +48,22 @@ namespace eShopPorted
                 });
             }
 
-            builder.Services.AddControllersWithViews();
+            builder.Services.AddControllersWithViews(options =>
+            {
+                options.Filters.Add(new AutoValidateAntiforgeryTokenAttribute());
+            });
             builder.Services.AddHealthChecks();
+
+            builder.Services
+                .AddAuthentication(CatalogAuthorizationPolicies.SchemeName)
+                .AddScheme<AuthenticationSchemeOptions, CloudRunIamAuthenticationHandler>(
+                    CatalogAuthorizationPolicies.SchemeName,
+                    options => { });
+
+            builder.Services
+                .AddAuthorizationBuilder()
+                .AddPolicy(CatalogAuthorizationPolicies.CatalogWrite, policy =>
+                    policy.RequireAuthenticatedUser());
 
             builder.Services.Configure<ForwardedHeadersOptions>(options =>
             {
@@ -114,6 +130,8 @@ namespace eShopPorted
 
             app.UseStaticFiles();
             app.UseRouting();
+            app.UseAuthentication();
+            app.UseAuthorization();
 
             app.MapHealthChecks("/healthz");
             app.MapGet("/api", () => Results.Json(new { Message = "Hello World!" }));

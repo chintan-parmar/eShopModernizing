@@ -2,6 +2,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using eShopPorted.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace eShopPorted.Controllers
@@ -38,6 +39,7 @@ namespace eShopPorted.Controllers
         }
 
         [HttpDelete("{id:int}")]
+        [Authorize(Policy = CatalogAuthorizationPolicies.CatalogWrite)]
         public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
         {
             var brands = await _service.GetCatalogBrandsAsync(cancellationToken);

@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using eShopPorted.Models;
 using eShopPorted.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.Extensions.Logging;
@@ -49,6 +50,7 @@ namespace eShopPorted.Controllers
         }
 
         // GET: Catalog/Create
+        [Authorize(Policy = CatalogAuthorizationPolicies.CatalogWrite)]
         public async Task<IActionResult> Create(CancellationToken cancellationToken = default)
         {
             _logger.LogInformation("Loading catalog create form");
@@ -59,6 +61,7 @@ namespace eShopPorted.Controllers
         // POST: Catalog/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Policy = CatalogAuthorizationPolicies.CatalogWrite)]
         public async Task<IActionResult> Create(
             [Bind("Id,Name,Description,Price,CatalogTypeId,CatalogBrandId,AvailableStock,RestockThreshold,MaxStockThreshold,OnReorder")] CatalogItem catalogItem,
             CancellationToken cancellationToken = default)
@@ -76,6 +79,7 @@ namespace eShopPorted.Controllers
         }
 
         // GET: Catalog/Edit/5
+        [Authorize(Policy = CatalogAuthorizationPolicies.CatalogWrite)]
         public async Task<IActionResult> Edit(int? id, CancellationToken cancellationToken = default)
         {
             _logger.LogInformation("Loading catalog edit form for {CatalogItemId}", id);
@@ -98,6 +102,7 @@ namespace eShopPorted.Controllers
         // POST: Catalog/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Policy = CatalogAuthorizationPolicies.CatalogWrite)]
         public async Task<IActionResult> Edit(
             [Bind("Id,Name,Description,Price,CatalogTypeId,CatalogBrandId,AvailableStock,RestockThreshold,MaxStockThreshold,OnReorder")] CatalogItem catalogItem,
             CancellationToken cancellationToken = default)
@@ -122,6 +127,7 @@ namespace eShopPorted.Controllers
         }
 
         // GET: Catalog/Delete/5
+        [Authorize(Policy = CatalogAuthorizationPolicies.CatalogWrite)]
         public async Task<IActionResult> Delete(int? id, CancellationToken cancellationToken = default)
         {
             _logger.LogInformation("Loading catalog delete confirmation for {CatalogItemId}", id);
@@ -143,6 +149,7 @@ namespace eShopPorted.Controllers
         // POST: Catalog/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
+        [Authorize(Policy = CatalogAuthorizationPolicies.CatalogWrite)]
         public async Task<IActionResult> DeleteConfirmed(int id, CancellationToken cancellationToken = default)
         {
             _logger.LogInformation("Deleting catalog item {CatalogItemId}", id);
