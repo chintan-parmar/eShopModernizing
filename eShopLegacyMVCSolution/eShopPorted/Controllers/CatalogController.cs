@@ -58,11 +58,12 @@ namespace eShopPorted.Controllers
         // POST: Catalog/Create
         // To protect from overposting attacks, please enable the specific properties you want to bind to, for 
         // more details see https://go.microsoft.com/fwlink/?LinkId=317598.
-[HttpPost]
-[ValidateAntiForgeryToken]
-public ActionResult Create([Bind("Id,Name,Description,Price,PictureFileName,CatalogTypeId,CatalogBrandId,AvailableStock,RestockThreshold,MaxStockThreshold,OnReorder")] CatalogItem catalogItem)
-{
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public ActionResult Create([Bind("Id,Name,Description,Price,CatalogTypeId,CatalogBrandId,AvailableStock,RestockThreshold,MaxStockThreshold,OnReorder")] CatalogItem catalogItem)
+        {
             _log.Info($"Now processing... /Catalog/Create?catalogItemName={catalogItem.Name}");
+            catalogItem.PictureFileName = CatalogItem.DefaultPictureName;
             if (ModelState.IsValid)
             {
                 service.CreateCatalogItem(catalogItem);
@@ -98,14 +99,22 @@ public ActionResult Create([Bind("Id,Name,Description,Price,PictureFileName,Cata
         // more details see https://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public ActionResult Edit([Bind("Id,Name,Description,Price,PictureFileName,CatalogTypeId,CatalogBrandId,AvailableStock,RestockThreshold,MaxStockThreshold,OnReorder")] CatalogItem catalogItem)
+        public ActionResult Edit([Bind("Id,Name,Description,Price,CatalogTypeId,CatalogBrandId,AvailableStock,RestockThreshold,MaxStockThreshold,OnReorder")] CatalogItem catalogItem)
         {
             _log.Info($"Now processing... /Catalog/Edit?id={catalogItem.Id}");
+            var existingItem = service.FindCatalogItem(catalogItem.Id);
+            if (existingItem == null)
+            {
+                return NotFound();
+            }
+
+            catalogItem.PictureFileName = existingItem.PictureFileName;
             if (ModelState.IsValid)
             {
                 service.UpdateCatalogItem(catalogItem);
                 return RedirectToAction("Index");
             }
+            AddUriPlaceHolder(catalogItem);
             ViewBag.CatalogBrandId = new SelectList(service.GetCatalogBrands(), "Id", "Brand", catalogItem.CatalogBrandId);
             ViewBag.CatalogTypeId = new SelectList(service.GetCatalogTypes(), "Id", "Type", catalogItem.CatalogTypeId);
             return View(catalogItem);

@@ -1,8 +1,8 @@
 ﻿using eShopPorted.Services;
 using log4net;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
-using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace eShopPorted.Controllers
 {
@@ -13,17 +13,17 @@ namespace eShopPorted.Controllers
         public const string GetPicRouteName = "GetPicRouteTemplate";
 
         private readonly ICatalogService _service;
-        private readonly IWebHostEnvironment _env;
+        private readonly ICatalogImageStorage _imageStorage;
 
-        public PicController(ICatalogService service, IWebHostEnvironment env)
+        public PicController(ICatalogService service, ICatalogImageStorage imageStorage)
         {
             _service = service;
-            _env = env;
+            _imageStorage = imageStorage;
         }
 
         // GET: items/5/pic
         [HttpGet("items/{catalogItemId:int}/pic", Name = GetPicRouteName)]
-        public IActionResult Index(int catalogItemId)
+        public async Task<IActionResult> Index(int catalogItemId, CancellationToken cancellationToken)
         {
             _log.Info($"Now loading... /items/{catalogItemId}/pic");
 
@@ -33,42 +33,19 @@ namespace eShopPorted.Controllers
             }
 
             var item = _service.FindCatalogItem(catalogItemId);
-
-            if (item != null)
+            if (item == null)
             {
-                var webRoot = Path.Combine(_env.WebRootPath, "Pics");
-                var path = Path.Combine(webRoot, item.PictureFileName);
-
-                if (!System.IO.File.Exists(path))
-                {
-                    return NotFound();
-                }
-
-                string imageFileExtension = Path.GetExtension(item.PictureFileName);
-                string mimetype = GetImageMimeTypeFromImageFileExtension(imageFileExtension);
-
-                var buffer = System.IO.File.ReadAllBytes(path);
-
-                return File(buffer, mimetype);
+                return NotFound();
             }
 
-            return NotFound();
-        }
-
-        private static string GetImageMimeTypeFromImageFileExtension(string extension)
-        {
-            return extension?.ToLowerInvariant() switch
+            var image = await _imageStorage.GetImageAsync(item.PictureFileName, cancellationToken);
+            if (image == null)
             {
-                ".png" => "image/png",
-                ".gif" => "image/gif",
-                ".jpg" or ".jpeg" => "image/jpeg",
-                ".bmp" => "image/bmp",
-                ".tiff" => "image/tiff",
-                ".wmf" => "image/wmf",
-                ".jp2" => "image/jp2",
-                ".svg" => "image/svg+xml",
-                _ => "application/octet-stream",
-            };
+                return NotFound();
+            }
+
+            Response.Headers.CacheControl = "public,max-age=3600";
+            return File(image.Stream, image.ContentType);
         }
     }
 }

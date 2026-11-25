@@ -34,6 +34,7 @@ namespace eShopPorted.Services
         public CatalogItem FindCatalogItem(int id)
         {
             return db.CatalogItems
+                .AsNoTracking()
                 .Include(c => c.CatalogBrand)
                 .Include(c => c.CatalogType)
                 .FirstOrDefault(ci => ci.Id == id);

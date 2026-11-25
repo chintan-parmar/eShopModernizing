@@ -38,6 +38,18 @@ namespace eShopPorted
             });
 
             bool useMockData = builder.Configuration.GetValue<bool>("UseMockData");
+            string storageBucketName = builder.Configuration["Storage:BucketName"];
+            if (!string.IsNullOrWhiteSpace(storageBucketName))
+            {
+                string objectPrefix = builder.Configuration["Storage:ObjectPrefix"];
+                builder.Services.AddSingleton<ICatalogImageStorage>(_ =>
+                    new GcsCatalogImageStorage(storageBucketName, objectPrefix));
+            }
+            else
+            {
+                builder.Services.AddSingleton<ICatalogImageStorage, LocalCatalogImageStorage>();
+            }
+
             if (useMockData)
             {
                 builder.Services.AddSingleton<ICatalogService, CatalogServiceMock>();
