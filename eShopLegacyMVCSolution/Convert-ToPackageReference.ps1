@@ -1,12 +1,31 @@
+$ExpectedXslSha256 = "92E311E057A7570FCD5B694B8B09839452119654F5AF746FC410120E86AF87AF"
+
 Function Convert-ToPackageReference
 {
     Param ( [Parameter( Mandatory, ValueFromPipeline )][String] $inputUri,
-            [String] $stylesheetUri = "https://gist.githubusercontent.com/a4099181/074a6c3dd524ea0d343382137492399c/raw/e2cd1bc88671bb1435569ba9ab1835994aa91725/Convert-ToPackageReference.xsl",
+            [String] $stylesheetUri = (Join-Path $PSScriptRoot "Convert-ToPackageReference.xsl"),
             [String] $resultsFile   = [System.IO.Path]::GetTempFileName() )
 
     Process {
+        if ($stylesheetUri -match '^(?i)https?://')
+        {
+            throw "Remote XSLT stylesheets are prohibited (SEC-04). Use the local vendored Convert-ToPackageReference.xsl."
+        }
+
+        if (-not (Test-Path -LiteralPath $stylesheetUri -PathType Leaf))
+        {
+            throw "Local XSLT stylesheet not found at '$stylesheetUri'."
+        }
+
+        $actualHash = (Get-FileHash -LiteralPath $stylesheetUri -Algorithm SHA256).Hash.ToUpperInvariant()
+        if ($actualHash -ne $ExpectedXslSha256)
+        {
+            throw "XSLT integrity verification failed for '$stylesheetUri'. Expected SHA-256 '$ExpectedXslSha256' but got '$actualHash'."
+        }
+
+        $xsltSettings = New-Object System.Xml.Xsl.XsltSettings($false, $false)
         $xslt = New-Object System.Xml.Xsl.XslCompiledTransform
-        $xslt.Load( $stylesheetUri )
+        $xslt.Load( $stylesheetUri, $xsltSettings, $null )
         $xslt.Transform( $inputUri, $resultsFile )
         Get-Content $resultsFile
     }
