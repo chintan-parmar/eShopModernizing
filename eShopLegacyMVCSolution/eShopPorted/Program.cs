@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading.Tasks;
 using eShopPorted.Models;
 using eShopPorted.Services;
 using Microsoft.AspNetCore.Builder;
@@ -16,7 +17,7 @@ namespace eShopPorted
     {
         public static DateTime StartTime { get; } = DateTime.UtcNow;
 
-        public static void Main(string[] args)
+        public static async Task Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
 
@@ -44,12 +45,29 @@ namespace eShopPorted
             else
             {
                 string connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+                if (string.IsNullOrWhiteSpace(connectionString))
+                {
+                    throw new InvalidOperationException(
+                        "ConnectionStrings:DefaultConnection must be configured (e.g., via Secret Manager env var ConnectionStrings__DefaultConnection) when UseMockData is false.");
+                }
+
                 builder.Services.AddDbContext<CatalogDBContext>(options =>
-                    options.UseSqlServer(connectionString));
+                    options.UseSqlServer(connectionString, sqlOptions =>
+                        sqlOptions.EnableRetryOnFailure(
+                            maxRetryCount: 5,
+                            maxRetryDelay: TimeSpan.FromSeconds(10),
+                            errorNumbersToAdd: null)));
                 builder.Services.AddScoped<ICatalogService, CatalogService>();
             }
 
             var app = builder.Build();
+
+            if (!useMockData && app.Configuration.GetValue<bool>("Database:ApplyMigrationsOnStartup"))
+            {
+                using var scope = app.Services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<CatalogDBContext>();
+                await db.Database.MigrateAsync();
+            }
 
             app.UseForwardedHeaders();
 
@@ -73,7 +91,7 @@ namespace eShopPorted
                 name: "default",
                 pattern: "{controller=Catalog}/{action=Index}/{id?}");
 
-            app.Run();
+            await app.RunAsync();
         }
     }
 }
